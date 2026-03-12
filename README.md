@@ -1,8 +1,8 @@
 # acp-commander-go
 
-[![Release](https://img.shields.io/github/v/release/mh0713/acp-commander-go?display_name=tag&sort=semver&cacheSeconds=300)](https://github.com/mh0713/acp-commander-go/releases)
-[![Downloads](https://img.shields.io/github/downloads/mh0713/acp-commander-go/total)](https://github.com/mh0713/acp-commander-go/releases)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/mh0713/acp-commander-go)](https://github.com/mh0713/acp-commander-go/blob/main/go.mod)
+[![Release](https://img.shields.io/github/v/release/mitsucodes/acp-commander-go?display_name=tag&sort=semver&cacheSeconds=300)](https://github.com/mitsucodes/acp-commander-go/releases)
+[![Downloads](https://img.shields.io/github/downloads/mitsucodes/acp-commander-go/total)](https://github.com/mitsucodes/acp-commander-go/releases)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/mitsucodes/acp-commander-go)](https://github.com/mitsucodes/acp-commander-go/blob/main/go.mod)
 
 `acp_commander.jar` の機能を Go で再実装するための独立プロジェクトです。
 
