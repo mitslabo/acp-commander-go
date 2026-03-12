@@ -4,27 +4,27 @@
 [![Downloads](https://img.shields.io/github/downloads/mitsucodes/acp-commander-go/total)](https://github.com/mitsucodes/acp-commander-go/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/mitsucodes/acp-commander-go)](https://github.com/mitsucodes/acp-commander-go/blob/main/go.mod)
 
-`acp_commander.jar` の機能を Go で再実装するための独立プロジェクトです。
+This is an independent project that reimplements the functionality of `acp_commander.jar` in Go.
 
 ## Fork Source / Credits
 
-この実装は、以下の Java プロジェクトをベースに移植しています。
+This implementation is ported from the following Java project:
 
 - Upstream project: https://github.com/Stonie/acp-commander
-- Related historical info (README記載):
+- Related historical info (mentioned in the README):
   - https://www.nas-central.org/
   - http://linkstationwiki.net/
 
 ## Current Scope (WIP)
 
-現時点で実装済みの主要機能:
+The major features implemented so far are:
 
 - `-f` discover
-- 認証フロー (`Discover -> EnOneCmd -> Auth`)
-- `-c` 単発コマンド実行
+- Authentication flow (`Discover -> EnOneCmd -> Auth`)
+- `-c` single command execution
 - `-o` openbox (`telnetd` + `passwd -d root`)
 
-未対応オプションはエラーとして明示します。
+Unsupported options return an explicit error.
 
 ## Build / Test
 
@@ -52,7 +52,7 @@ Artifacts are generated in `dist/`:
 go run ./cmd/acp-commander -h
 ```
 
-例:
+Example:
 
 ```bash
 go run ./cmd/acp-commander -t 192.168.1.11 -pw <admin_password> -c "uname -a"
