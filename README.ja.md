@@ -22,6 +22,7 @@
 - `-f` discover
 - 認証フロー (`Discover -> EnOneCmd -> Auth`)
 - `-c` 単発コマンド実行
+- `-x` コピー機能: ローカルファイルをHTTPで配信し、ターゲットで `wget` または `busybox wget` で受信
 - `-o` openbox (`telnetd` + `passwd -d root`)
 
 未対応オプションはエラーとして明示します。
@@ -56,4 +57,10 @@ go run ./cmd/acp-commander -h
 
 ```bash
 go run ./cmd/acp-commander -t 192.168.1.11 -pw <admin_password> -c "uname -a"
+```
+
+コピー例:
+
+```bash
+go run ./cmd/acp-commander -t 192.168.1.11 -pw <admin_password> -x ./local.bin=/tmp/remote.bin
 ```
