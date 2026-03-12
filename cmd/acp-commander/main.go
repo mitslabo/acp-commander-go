@@ -4,7 +4,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -19,7 +22,70 @@ func main() {
 	}
 }
 
+// guessLocalIP attempts to determine the local address used to reach the
+// given destination by opening a UDP socket.  It is a quick fallback when a
+// more accurate interface-based search fails.
+func guessLocalIP(dest string) (string, error) {
+	conn, err := net.Dial("udp", dest+":80")
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+	if udpAddr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+		return udpAddr.IP.String(), nil
+	}
+	return "", errors.New("unable to determine local IP from connection")
+}
+
+// findLocalIP looks through the machine's network interfaces to pick an
+// address that is in the same network as the destination.  This is more
+// reliable on multi‑homed hosts than UDP dialing.
+func findLocalIP(dest string) (string, error) {
+	destIP := net.ParseIP(dest)
+	if destIP == nil {
+		return "", fmt.Errorf("invalid destination IP %s", dest)
+	}
+	if destIP.To4() == nil {
+		return "", errors.New("only IPv4 is supported for copy")
+	}
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			var ipnet *net.IPNet
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+				ipnet = v
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.To4() == nil {
+				continue
+			}
+			if ipnet != nil && ipnet.Contains(destIP) {
+				return ip.String(), nil
+			}
+		}
+	}
+	// fallback
+	return guessLocalIP(dest)
+}
+
 func run(args []string) error {
+	if !strings.HasPrefix(os.Getenv("ACP_DEBUG"), "") {
+		fmt.Printf("DEBUG: run args=%#v\n", args)
+	}
 	if len(args) == 0 || hasAny(args, "-h", "--h", "-help", "--help", "-u", "--usage", "-v", "--v", "-?", "--?") {
 		usage()
 		return nil
@@ -72,9 +138,13 @@ func run(args []string) error {
 
 	password := getParamValue(args, "-pw", "")
 	cmdline := getParamValue(args, "-c", "")
+	copySpec := getParamValue(args, "-x", "") // local=remote
+	if copySpec != "" && !client.Quiet {
+		fmt.Printf("copy spec: %s\n", copySpec)
+	}
 	openBox := hasParam(args, "-o")
 	findLS := hasParam(args, "-f")
-	needAuth := (openBox || cmdline != "") && !hasParam(args, "-na")
+	needAuth := (openBox || cmdline != "" || copySpec != "") && !hasParam(args, "-na")
 	needExplicitAuth := hasParam(args, "-auth")
 
 	if !client.Quiet {
@@ -144,6 +214,65 @@ func run(args []string) error {
 		fmt.Printf(">%s\n%s\n", trimmed, out)
 	}
 
+	if copySpec != "" {
+		parts := strings.SplitN(copySpec, "=", 2)
+		if len(parts) != 2 {
+			return errors.New("invalid -x syntax; expected local=remote")
+		}
+		localPath := parts[0]
+		remotePath := parts[1]
+
+		// ensure local file exists
+		fi, err := os.Stat(localPath)
+		if err != nil {
+			return err
+		}
+		if fi.IsDir() {
+			return fmt.Errorf("%s is a directory", localPath)
+		}
+
+		// determine which local IP the target can reach.  respect explicit
+		// bind option if provided (--bind/-b).
+		localIP := client.BindIP
+		if localIP == "" {
+			var err error
+			localIP, err = findLocalIP(client.TargetIP)
+			if err != nil {
+				return fmt.Errorf("unable to determine local IP: %w", err)
+			}
+		}
+
+		ln, err := net.Listen("tcp", localIP+":0")
+		if err != nil {
+			return err
+		}
+		defer ln.Close()
+		port := ln.Addr().(*net.TCPAddr).Port
+		dir := filepath.Dir(localPath)
+		file := filepath.Base(localPath)
+		srvErr := make(chan error, 1)
+		go func() {
+			srvErr <- http.Serve(ln, http.FileServer(http.Dir(dir)))
+		}()
+		// give server a moment to start or fail
+		select {
+		case err := <-srvErr:
+			return err
+		case <-time.After(50 * time.Millisecond):
+		}
+
+		url := fmt.Sprintf("http://%s:%d/%s", localIP, port, file)
+		if !client.Quiet {
+			fmt.Printf("serving %s on %s (bind %s) and instructing remote to fetch\n", localPath, url, localIP)
+		}
+		cmd := fmt.Sprintf("wget -O %s %s || busybox wget -O %s %s", remotePath, url, remotePath, url)
+		out, err := client.Command(cmd, 1)
+		if err != nil {
+			return err
+		}
+		fmt.Printf(">%s\n%s\n", cmd, out)
+	}
+
 	for _, unsupported := range []string{"-s", "-cb", "-reboot", "-shutdown", "-save", "-load", "-ip", "-addons", "-diag", "-gui"} {
 		if hasParam(args, unsupported) {
 			return fmt.Errorf("option %s is not yet supported in Go reimplementation", unsupported)
@@ -191,6 +320,7 @@ func usage() {
 	fmt.Println("  -f               find/discover linkstations")
 	fmt.Println("  -pw <password>   admin password")
 	fmt.Println("  -c <command>     send ACP command")
+	fmt.Println("  -x <local=remote> copy local file to remote using HTTP/wget")
 	fmt.Println("  -o               open box (telnetd + passwd -d root)")
 	fmt.Println("  -t <target>      target IP/hostname")
 	fmt.Println("  -p <port>        UDP port (default 22936)")
