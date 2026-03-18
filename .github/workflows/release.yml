@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          declare -A goarm_map=(["linux_arm"]="7")
+          for target in "windows amd64 .exe" "linux amd64 " "linux arm64 " "linux arm "; do
+            read -r goos goarch suffix <<< "$target"
+            name="acp-commander_${goos}_${goarch}${suffix}"
+            echo "Building $name ..."
+            key="${goos}_${goarch}"
+            CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch GOARM=${goarm_map[$key]:-} \
+              go build -trimpath -tags "netgo,osusergo" -ldflags "-s -w -buildid=" \
+              -o "dist/$name" ./cmd/acp-commander
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/acp-commander_windows_amd64.exe
+            dist/acp-commander_linux_amd64
+            dist/acp-commander_linux_arm64
+            dist/acp-commander_linux_arm
