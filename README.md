@@ -1,8 +1,6 @@
 # acp-commander-go
 
 [![Release](https://img.shields.io/github/v/release/mitsucodes/acp-commander-go?display_name=tag&sort=semver&cacheSeconds=300)](https://github.com/mitsucodes/acp-commander-go/releases)
-
-This release also adds a new `-x` option allowing the CLI to serve a local file over HTTP and instruct a target LinkStation to fetch it via `wget` (falling back to `busybox wget`).
 [![Downloads](https://img.shields.io/github/downloads/mitsucodes/acp-commander-go/total)](https://github.com/mitsucodes/acp-commander-go/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/mitsucodes/acp-commander-go)](https://github.com/mitsucodes/acp-commander-go/blob/main/go.mod)
 
